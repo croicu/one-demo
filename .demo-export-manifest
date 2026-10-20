@@ -19,6 +19,7 @@ prompts/learn_prompt.md
 prompts/revise_prompt.md
 settings.json
 settings.local.example.json
+slides/demo.html
 slides/demo.md
 src/one_demo/approve_command.py
 src/one_demo/candidates.py

@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning from a past incident</title>
+<style>
+:root {
+  --bg: #f7f7f5; --fg: #1d1d1f; --muted: #5f6368; --accent: #0b6bcb; --card: #ffffff;
+  --border: #dcdcd7; --code-bg: #f0f0ec; --add: #1a7f37; --del: #cf222e; --quote: #e9eef6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141416; --fg: #e8e8ea; --muted: #a0a0a8; --accent: #6cb6ff; --card: #1d1d21;
+    --border: #34343a; --code-bg: #24242a; --add: #56d364; --del: #ff7b72; --quote: #1f2633;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141416; --fg: #e8e8ea; --muted: #a0a0a8; --accent: #6cb6ff; --card: #1d1d21;
+  --border: #34343a; --code-bg: #24242a; --add: #56d364; --del: #ff7b72; --quote: #1f2633;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+  font: 18px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.deck { height: 100%; display: flex; flex-direction: column; }
+.stage { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 24px 16px; }
+.slide { display: none; width: 100%; max-width: 980px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: clamp(20px, 4vw, 48px); align-self: flex-start; }
+.slide.active { display: block; }
+h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); margin: 0 0 0.6em; line-height: 1.15; }
+h2 { font-size: clamp(1.3rem, 3vw, 1.9rem); margin: 0 0 0.7em; color: var(--accent); }
+a { color: var(--accent); }
+code { font: 0.86em/1.45 ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--code-bg);
+  padding: 0.1em 0.35em; border-radius: 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+  overflow-x: auto; }
+pre code { background: none; padding: 0; font-size: 0.8rem; white-space: pre; }
+pre .add { color: var(--add); } pre .del { color: var(--del); }
+blockquote { margin: 0 0 1em; padding: 10px 16px; background: var(--quote); border-left: 4px solid var(--accent);
+  border-radius: 6px; }
+blockquote p { margin: 0.3em 0; }
+table { border-collapse: collapse; width: 100%; margin: 0.6em 0; font-size: 0.92rem; display: block; overflow-x: auto; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); }
+ul, ol { padding-left: 1.3em; } li { margin: 0.25em 0; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px;
+  border-top: 1px solid var(--border); color: var(--muted); font-size: 0.9rem; }
+.bar button { background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 14px; font: inherit; cursor: pointer; min-width: 44px; min-height: 36px; }
+.bar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.progress { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress div { height: 100%; background: var(--accent); width: 0; transition: width 0.2s; }
+@media print {
+  .bar { display: none; } .stage { display: block; padding: 0; }
+  .slide { display: block !important; page-break-after: always; border: none; max-width: none; }
+}
+</style>
+</head>
+<body>
+<main class="deck">
+<div class="stage">
+<section class="slide" aria-label="Slide 1">
+<h1>Learning from a past incident</h1>
+<p>A lesson learned from a past production fix, tested, and applied to code that hasn't failed yet.
+Every finding cites the incident behind it.</p>
+<p><code>one-demo</code> · step by step</p>
+</section>
+<section class="slide" aria-label="Slide 2">
+<h2>The incident</h2>
+<p><strong><a target="_blank" rel="noopener" href="https://github.com/microsoft/azure-pipelines-agent/pull/5448">microsoft/azure-pipelines-agent PR #5448</a></strong>: the
+agent that runs on every self-hosted build machine.</p>
+<blockquote>
+<p>"When the server is unavailable … the agent continuously retries the request indefinitely. Each
+retry invokes the OAuth token provisioning mechanism on the server … This behavior significantly
+increases load on an already unavailable server."</p>
+</blockquote>
+<pre><code class="language-diff">-            await HostContext.Delay(TimeSpan.FromSeconds(30), token);
++            await HostContext.Delay(_keepAliveRetryInterval, token);
+</code></pre>
+<p>Before: every agent retried on the same 30-second beat. After: the wait grows while failures last.</p>
+</section>
+<section class="slide" aria-label="Slide 3">
+<h2>The loop</h2>
+<pre><code>incident  →  learn  →  review  →  adjust  →  approve  →  scan
+ (a fix)    (draft     (scan      (a person   (tests,     (findings
+            lesson)    with the   adds what   then file   filed where
+                       draft)     it missed)  issues)     the code is)
+</code></pre>
+<ul>
+<li>A <strong>lesson</strong> is a Markdown file: the mechanism, when it is dangerous, when it is harmless, the fix,
+  and the incident it came from.</li>
+<li>The code it is applied to: <a target="_blank" rel="noopener" href="https://github.com/croicu/one-demo-sample-cs">croicu/one-demo-sample-cs</a>,
+  a few ordinary service components that call other services and retry on failure.</li>
+</ul>
+</section>
+<section class="slide" aria-label="Slide 4">
+<h2>Step 1: scan before learning</h2>
+<pre><code>$ one-demo scan ../one-demo-sample-cs
+No approved lessons: nothing to check, so nothing to report.
+</code></pre>
+<p>The scanner knows no patterns of its own. Each lesson carries the query that selects the code it
+applies to; with no lessons, nothing is even looked at.</p>
+<p><strong>It only speaks when it can cite an incident.</strong></p>
+</section>
+<section class="slide" aria-label="Slide 5">
+<h2>Step 2: learn</h2>
+<pre><code>$ one-demo learn incidents/azure-pipelines-agent-5448
+Draft lesson: lessons/drafts/nonprogressive-failure-retries.md
+Its tests:    lessons/drafts/nonprogressive-failure-retries.tests.json
+Checks passed.
+</code></pre>
+<p>A model reads the saved incident (the description and the fix, never fetched live) and drafts:</p>
+<ul>
+<li>the <strong>mechanism</strong>: failed remote work retried without the delay growing</li>
+<li><strong>candidates</strong>: the patterns that select methods to look at</li>
+<li><strong>conditions</strong> and <strong>decision rules</strong>: when the lesson flags, when it clears</li>
+</ul>
+<p>Deterministic checks before anyone reads it: it parses, it cites its incident, and its patterns
+find the method the incident shows failing. (~40 s)</p>
+</section>
+<section class="slide" aria-label="Slide 6">
+<h2>Step 3: review</h2>
+<pre><code>$ one-demo scan ../one-demo-sample-cs --review
+REVIEW: judging with draft lessons, not yet approved.
+WARNING  InventoryClient.GetStockAsync
+WARNING  ReconciliationJob.GetOpenBatchAsync
+WARNING  StatusMonitor.GetStatusAsync
+cleared  UserSettings.MoveIntoPlace
+3 warning(s), 1 cleared
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Warning</th>
+<th>Right?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The inventory client: every request retries a shared service on a fixed 2 s beat</td>
+<td>✅ real</td>
+</tr>
+<tr>
+<td>A scheduled job documented to run as a single instance</td>
+<td>❌ the draft ignores the documentation</td>
+</tr>
+<tr>
+<td>A monitor polling an agent on its own host (<code>127.0.0.1</code>)</td>
+<td>❌ a local target can't be stormed by a fleet</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section class="slide" aria-label="Slide 7">
+<h2>Step 4: adjust</h2>
+<p>The incident was about one shared server. It never mentions documented single instances or local
+targets, so the model couldn't learn them. A reviewer adds them, in the lesson:</p>
+<pre><code class="language-markdown">- **H-DOC. The code documents that it runs as a single instance.** A `///` doc comment
+  on the method, its class, or a base class states that this code runs once fleet-wide …
+- **H-LOCAL. The retried target is local to the host.** A loopback address, a local
+  file or device, or an in-process resource …
+
+1. H-DOC holds → clear (H-DOC)
+1. H-LOCAL holds → clear (H-LOCAL)
+</code></pre>
+<p>The code isn't touched: the team's fact (the doc comment) was already there. <strong>Two ways to fix a
+finding: fix the code, or fix the lesson.</strong></p>
+</section>
+<section class="slide" aria-label="Slide 8">
+<h2>Step 5: approve</h2>
+<pre><code>$ one-demo approve lessons/drafts/nonprogressive-failure-retries.md
+pass  The incident: keep-alive retried every 30 s
+pass  The incident: session creation retried every 30 s
+pass  Same file: message polling, which can fall into the fixed 30 s session recovery
+pass  Fleet client: per-request retry of a shared remote API
+pass  Local poll loop: retries a loopback agent
+pass  Scheduled job, instance count undocumented
+pass  Scheduled job, documented as one replica fleet-wide
+APPROVED  7/7 tests passed
+
+Re-scanning ../one-demo-sample-cs with the approved lesson...
+1 warning(s), 3 cleared
+1 new issue(s) to file in croicu/one-demo-sample-cs:
+  - Retry delays that do not grow during sustained failures: InventoryClient.GetStockAsync
+File them? [y/N] y
+Filed: https://github.com/croicu/one-demo-sample-cs/issues/2
+</code></pre>
+<p><strong>No lesson reaches production untested:</strong> labeled examples from the incident's own code before the
+fix, plus hand-labeled cases. Any failure keeps the lesson in review. (~50 s)</p>
+</section>
+<section class="slide" aria-label="Slide 9">
+<h2>What the team receives</h2>
+<p><strong>Retry delays that do not grow during sustained failures: <code>InventoryClient.GetStockAsync</code></strong></p>
+<blockquote>
+<p>Failed inventory requests are retried at a fixed two-second cadence; limiting each call to five
+attempts does not provide progressive backoff. Track consecutive failures and increase the
+cancellable delay toward a bounded maximum, resetting the streak after success.</p>
+</blockquote>
+<ul>
+<li><strong>Evidence</strong>, linked at the scanned commit: <code>RetryDelay = TimeSpan.FromSeconds(2)</code>, the retry
+  loop, the remote call, the catch.</li>
+<li><strong>Why this matters:</strong> the same gap caused the Azure Pipelines agent incident (PR #5448).</li>
+<li><strong>To resolve:</strong> fix the code, or document the fact that makes it safe, so the next scan clears it.</li>
+</ul>
+<p>The scanner opens issues; closing them is the team's call.</p>
+</section>
+<section class="slide" aria-label="Slide 10">
+<h2>Step 6: scan in production</h2>
+<pre><code>$ one-demo scan ../one-demo-sample-cs --issues
+WARNING  InventoryClient.GetStockAsync
+cleared  UserSettings.MoveIntoPlace
+cleared  ReconciliationJob.GetOpenBatchAsync   [H-DOC]
+cleared  StatusMonitor.GetStatusAsync          [H-LOCAL]
+1 warning(s), 3 cleared
+Already tracked (open issue): InventoryClient.GetStockAsync
+</code></pre>
+<p>A single incident's lesson, applied to different code in another repository: the real gap is found
+and tracked, the harmless lookalikes are cleared with the reason stated.</p>
+</section>
+<section class="slide" aria-label="Slide 11">
+<h2>How it stays honest</h2>
+<ul>
+<li><strong>The scanner knows no patterns.</strong> Each lesson brings its own query, drafted by the model and
+  reviewed by a person.</li>
+<li><strong>The verdict isn't the model's.</strong> The model checks each condition and cites file and line; the
+  lesson's decision rules turn those checks into the verdict.</li>
+<li><strong>Every citation is verified</strong> against the code, and every finding links its incident.</li>
+<li><strong>No lesson ships untested,</strong> and a failed test is fixed in the lesson or, when the label was
+  wrong, in the label. In rehearsal a learned lesson caught a path our own label had missed.</li>
+<li><strong>The model learns what the incident says, not what we know.</strong> What an incident can't teach is
+  added by a reviewer, visibly.</li>
+</ul>
+</section>
+<section class="slide" aria-label="Slide 12">
+<h2>What this doesn't prove</h2>
+<ul>
+<li><strong>Precision.</strong> A single incident and a single sample repository show the mechanism, not how often a lesson
+  is right. That needs many labeled incidents and held-out examples: a backtest with a precision bar
+  before any lesson ships.</li>
+<li><strong>Unfamiliar lessons.</strong> Retries without backoff are well-known practice; a model knows them
+  already. The value grows with lessons a model can't know: failures specific to a system, a team,
+  or an internal API.</li>
+</ul>
+</section>
+<section class="slide" aria-label="Slide 13">
+<h2>Try it</h2>
+<ol>
+<li>Open <a target="_blank" rel="noopener" href="https://github.com/croicu/one-demo">croicu/one-demo</a> in a GitHub Codespace. The container
+   installs the tool and clones the sample repository next to it.</li>
+<li><code>cp settings.local.example.json settings.local.json</code> and add your own OpenAI API key (gitignored;
+   it stays in your codespace).</li>
+<li>Run the steps above. A full run takes a few minutes and costs a few cents.</li>
+</ol>
+<pre><code>one-demo scan &lt;folder&gt; [--review] [--issues]
+one-demo learn &lt;incident packet&gt; | --revise &lt;draft&gt;
+one-demo approve &lt;draft&gt;
+</code></pre>
+</section>
+</div>
+<nav class="bar" aria-label="Slide navigation">
+<button id="prev" aria-label="Previous slide">&larr;</button>
+<div class="progress" aria-hidden="true"><div></div></div>
+<span id="counter" aria-live="polite"></span>
+<button id="next" aria-label="Next slide">&rarr;</button>
+</nav>
+</main>
+<script>
+const slides = Array.from(document.querySelectorAll('.slide'));
+const counter = document.getElementById('counter');
+const fill = document.querySelector('.progress div');
+let current = 0;
+function show(index) {
+  current = Math.max(0, Math.min(slides.length - 1, index));
+  slides.forEach(function (slide, i) { slide.classList.toggle('active', i === current); });
+  counter.textContent = (current + 1) + ' / ' + slides.length;
+  fill.style.width = ((current + 1) / slides.length * 100) + '%';
+  history.replaceState(null, '', '#' + (current + 1));
+  document.querySelector('.stage').scrollTop = 0;
+}
+document.getElementById('prev').addEventListener('click', function () { show(current - 1); });
+document.getElementById('next').addEventListener('click', function () { show(current + 1); });
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') { event.preventDefault(); show(current + 1); }
+  if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); show(current - 1); }
+  if (event.key === 'Home') { show(0); }
+  if (event.key === 'End') { show(slides.length - 1); }
+});
+document.querySelectorAll('pre code.language-diff').forEach(function (block) {
+  block.innerHTML = block.innerHTML.split('\n').map(function (line) {
+    if (line.startsWith('+')) { return '<span class="add">' + line + '</span>'; }
+    if (line.startsWith('-')) { return '<span class="del">' + line + '</span>'; }
+    return line;
+  }).join('\n');
+});
+const start = parseInt((location.hash || '#1').slice(1), 10);
+show(isNaN(start) ? 0 : start - 1);
+</script>
+</body>
+</html>
