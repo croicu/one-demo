@@ -4,14 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Mission
 
-__mission__
+A demo project.
 
 ## Template Sync
 
 - **Source**: [croicu/tpl-py](https://github.com/croicu/tpl-py)
-- **Synced to**: <!-- SYNCED_TO --> (set by `tasks/repo_setup.md` at instantiation time; left
-  unset in `tpl-py`'s own master copy of this file, since the source has nothing to sync
-  against)
+- **Synced to**: 2026-08-30T19:00:00Z
 
 This repo is either `tpl-py` itself or was generated from it. `tpl-py`'s `ADDENDUM.md` is a
 curated, timestamped log of changes meant for downstream instances (new/changed rules,
@@ -176,7 +174,7 @@ After any change that affects the public interface, CLI, or file formats, update
 pip install -e ".[dev]"
 
 # Run
-__project_name__
+one-demo
 
 # Lint
 ruff check src/ tests/
@@ -201,7 +199,7 @@ pytest tests/unit/test_foo.py::test_bar   # single test
 
 ## Logging
 
-- **Use `Logger`** (`from __package_name__.diagnostics import Logger`) — not bare `print()`.
+- **Use `Logger`** (`from one_demo.diagnostics import Logger`) — not bare `print()`.
 - **All features log success and errors** — no silent success, no swallowed errors.
 - **Message length by severity**:
   - **Success (info)** — short: feature started, feature ended.
@@ -236,9 +234,6 @@ pytest tests/unit/test_foo.py::test_bar   # single test
 ## New Task
 
 ## Pending Tasks
-- **File**: [Repo Setup](tasks/repo_setup.md)
-- **Status**: Implementation
-- **Key Context**: This repo was generated from a template and still contains placeholder tokens. Replace them per that file's instructions, then delete it and this entry.
 
 ## Completed Tasks
 - **Backport: static-method encapsulation convention, and a channel for instances to backport

@@ -1,14 +1,8 @@
-# __project_name__
+# one-demo
 
-__description__
+A demo project
 
 ---
-
-## Setup
-
-This repo was generated from a template and still contains placeholder tokens
-(`__package_name__`, `__project_name__`, `__description__`, `__mission__`). See
-[tasks/repo_setup.md](tasks/repo_setup.md) for replacement instructions.
 
 ## Install
 

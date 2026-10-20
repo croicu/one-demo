@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from __package_name__.cli import main
+from one_demo.cli import main
 
 SETTINGS_PATH = Path(__file__).parent.parent / "data" / "settings.json"
 
