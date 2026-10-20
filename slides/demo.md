@@ -115,8 +115,8 @@ targets, so the model couldn't learn them. A reviewer adds them, in the lesson:
 1. H-LOCAL holds → clear (H-LOCAL)
 ```
 
-The code isn't touched: the team's fact (the doc comment) was already there. **Two ways to fix a
-finding: fix the code, or fix the lesson.**
+The code isn't touched: the team's fact (the doc comment) was already there. **Three ways to act on a
+finding: fix the code, fix the lesson, or file a bug.**
 
 ---
 
@@ -161,6 +161,9 @@ fix, plus hand-labeled cases. Any failure keeps the lesson in review. (~50 s)
 
 The scanner opens issues; closing them is the team's call.
 
+Issues are one way to deliver findings. A report, with nothing filed, is another: for teams that
+want to see findings before anything lands in their repository. The demo shows issues.
+
 ---
 
 ## Step 6: scan in production
@@ -202,6 +205,9 @@ and tracked, the harmless lookalikes are cleared with the reason stated.
 - **Unfamiliar lessons.** Retries without backoff are well-known practice; a model knows them
   already. The value grows with lessons a model can't know: failures specific to a system, a team,
   or an internal API.
+- **Missing practices.** A lesson finds code that does something wrong, such as retrying on a fixed
+  beat. Finding code that lacks a practice entirely, such as a remote call with no circuit breaker,
+  is a different problem and isn't shown here.
 
 ---
 

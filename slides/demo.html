@@ -163,8 +163,8 @@ targets, so the model couldn't learn them. A reviewer adds them, in the lesson:<
 1. H-DOC holds → clear (H-DOC)
 1. H-LOCAL holds → clear (H-LOCAL)
 </code></pre>
-<p>The code isn't touched: the team's fact (the doc comment) was already there. <strong>Two ways to fix a
-finding: fix the code, or fix the lesson.</strong></p>
+<p>The code isn't touched: the team's fact (the doc comment) was already there. <strong>Three ways to act on a
+finding: fix the code, fix the lesson, or file a bug.</strong></p>
 </section>
 <section class="slide" aria-label="Slide 8">
 <h2>Step 5: approve</h2>
@@ -203,6 +203,8 @@ cancellable delay toward a bounded maximum, resetting the streak after success.<
 <li><strong>To resolve:</strong> fix the code, or document the fact that makes it safe, so the next scan clears it.</li>
 </ul>
 <p>The scanner opens issues; closing them is the team's call.</p>
+<p>Issues are one way to deliver findings. A report, with nothing filed, is another: for teams that
+want to see findings before anything lands in their repository. The demo shows issues.</p>
 </section>
 <section class="slide" aria-label="Slide 10">
 <h2>Step 6: scan in production</h2>
@@ -240,6 +242,9 @@ and tracked, the harmless lookalikes are cleared with the reason stated.</p>
 <li><strong>Unfamiliar lessons.</strong> Retries without backoff are well-known practice; a model knows them
   already. The value grows with lessons a model can't know: failures specific to a system, a team,
   or an internal API.</li>
+<li><strong>Missing practices.</strong> A lesson finds code that does something wrong, such as retrying on a fixed
+  beat. Finding code that lacks a practice entirely, such as a remote call with no circuit breaker,
+  is a different problem and isn't shown here.</li>
 </ul>
 </section>
 <section class="slide" aria-label="Slide 13">
