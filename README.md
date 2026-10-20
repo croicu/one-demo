@@ -12,6 +12,8 @@ and the real finding is filed there as an issue that links the incident.
 
 ## The demo
 
+Step by step, with the real output of a run: [slides/demo.md](slides/demo.md).
+
 | # | Step | Command |
 |---|---|---|
 | 1 | Scan before learning: nothing to report, because the scanner only speaks when it can cite an incident | `one-demo scan ../one-demo-sample-cs` |
