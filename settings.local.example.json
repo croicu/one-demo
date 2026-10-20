@@ -1,0 +1,7 @@
+{
+  "settings": {
+    "openai": {
+      "apiKey": "sk-...your own OpenAI API key..."
+    }
+  }
+}

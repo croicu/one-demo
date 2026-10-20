@@ -1,0 +1,98 @@
+{
+  "about": "Labeled examples for lessons learned from this incident. 'incident' tests come from the incident's own code before the fix; 'team example' tests are the team's hand-labeled cases. Paths are relative to this folder. Verdicts only: a learned lesson may name its conditions differently.",
+  "tests": [
+    {
+      "name": "The incident: keep-alive retried every 30 s",
+      "source": "incident",
+      "subject": "MessageListener.KeepAlive",
+      "files": [
+        {
+          "path": "before/MessageListener.cs",
+          "showAs": "MessageListener.cs"
+        }
+      ],
+      "expected": "flag"
+    },
+    {
+      "name": "The incident: session creation retried every 30 s",
+      "source": "incident",
+      "subject": "MessageListener.CreateSessionAsync",
+      "files": [
+        {
+          "path": "before/MessageListener.cs",
+          "showAs": "MessageListener.cs"
+        }
+      ],
+      "expected": "flag"
+    },
+    {
+      "name": "Same file: message polling, which can fall into the fixed 30 s session recovery",
+      "source": "incident",
+      "subject": "MessageListener.GetNextMessageAsync",
+      "files": [
+        {
+          "path": "before/MessageListener.cs",
+          "showAs": "MessageListener.cs"
+        }
+      ],
+      "expected": "flag",
+      "note": "Relabeled Oct 20 from clear to flag: on TaskAgentSessionExpiredException it calls CreateSessionAsync, which retries on a fixed 30 s interval, so the method can enter the fixed-delay loop even though its own polling wait is random and growing. A revised draft lesson's judge caught this; the original label looked only at the method's own delay."
+    },
+    {
+      "name": "Fleet client: per-request retry of a shared remote API",
+      "source": "team example",
+      "subject": "InventoryClient.GetStockAsync",
+      "files": [
+        {
+          "path": "examples/InventoryClient.cs",
+          "showAs": "InventoryClient.cs"
+        }
+      ],
+      "expected": "flag"
+    },
+    {
+      "name": "Local poll loop: retries a loopback agent",
+      "source": "team example",
+      "subject": "StatusMonitor.GetStatusAsync",
+      "files": [
+        {
+          "path": "examples/StatusMonitor.cs",
+          "showAs": "StatusMonitor.cs"
+        }
+      ],
+      "expected": "clear"
+    },
+    {
+      "name": "Scheduled job, instance count undocumented",
+      "source": "team example",
+      "subject": "ReconciliationJob.GetOpenBatchAsync",
+      "files": [
+        {
+          "path": "examples/ReconciliationJob.cs",
+          "showAs": "ReconciliationJob.cs"
+        },
+        {
+          "path": "examples/ScheduledJob.cs",
+          "showAs": "ScheduledJob.cs"
+        }
+      ],
+      "expected": "flag"
+    },
+    {
+      "name": "Scheduled job, documented as one replica fleet-wide",
+      "source": "team example",
+      "subject": "ReconciliationJob.GetOpenBatchAsync",
+      "files": [
+        {
+          "path": "examples/ReconciliationJob.cs",
+          "showAs": "ReconciliationJob.cs"
+        },
+        {
+          "path": "examples/ScheduledJob.documented.cs",
+          "showAs": "ScheduledJob.cs"
+        }
+      ],
+      "expected": "clear"
+    }
+  ]
+}

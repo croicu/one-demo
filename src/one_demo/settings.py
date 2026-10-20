@@ -22,10 +22,25 @@ class Settings:
     _instance: ClassVar[Settings | None] = None
 
     @staticmethod
+    def _merge(base: dict, override: dict) -> dict:
+        """Returns base with override applied key-by-key. Where both sides hold a JSON object
+        under the same key, the two are merged recursively instead of override replacing it, so
+        settings.local.json can supply one field of a section (e.g. a secret) without repeating
+        the rest of that section from settings.json."""
+        merged = dict(base)
+        for key, override_value in override.items():
+            base_value = merged.get(key)
+            if isinstance(base_value, dict) and isinstance(override_value, dict):
+                merged[key] = Settings._merge(base_value, override_value)
+            else:
+                merged[key] = override_value
+        return merged
+
+    @staticmethod
     def _load_payload(path: Path, local_path: Path) -> dict:
         """Reads settings.json's 'settings' object, with settings.local.json's own 'settings'
-        object overriding it key-by-key. Private to the class — section() is the public way for
-        a caller outside Settings to reach a section of the merged file."""
+        object merged over it (see _merge()). Private to the class — section() is the public way
+        for a caller outside Settings to reach a section of the merged file."""
         settings_payload: dict = {}
 
         if path.exists():
@@ -44,7 +59,7 @@ class Settings:
             if isinstance(local_payload, dict):
                 local_settings = local_payload.get("settings", {})
                 if isinstance(local_settings, dict):
-                    settings_payload.update(local_settings)
+                    settings_payload = Settings._merge(settings_payload, local_settings)
 
         return settings_payload
 

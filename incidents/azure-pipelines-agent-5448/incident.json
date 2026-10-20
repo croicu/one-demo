@@ -1,0 +1,15 @@
+{
+  "repo": "microsoft/azure-pipelines-agent",
+  "number": 5448,
+  "title": "Enhancing the delay in the listener when there is exception in the connection",
+  "url": "https://github.com/microsoft/azure-pipelines-agent/pull/5448",
+  "diff_url": "https://github.com/microsoft/azure-pipelines-agent/pull/5448/files",
+  "merged_at": "2026-02-18T05:56:11Z",
+  "merge_commit": "26d723091ceb1acf0f20b2481459a29fc4b1eca7",
+  "before_commit": "98aef01f026d9c4d1491087ec61232567a74ab8d",
+  "source_files": [
+    "src/Agent.Listener/Agent.cs",
+    "src/Agent.Listener/MessageListener.cs",
+    "src/Agent.Sdk/Knob/AgentKnobs.cs"
+  ]
+}

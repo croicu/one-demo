@@ -1,0 +1,23 @@
+{
+  "name": "one-demo",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "postCreateCommand": "pip install -e '.[dev]' && (test -d /workspaces/one-demo-sample-cs || gh repo clone croicu/one-demo-sample-cs /workspaces/one-demo-sample-cs)",
+  "customizations": {
+    "codespaces": {
+      "repositories": {
+        "croicu/one-demo-sample-cs": {
+          "permissions": {
+            "contents": "read",
+            "issues": "write"
+          }
+        }
+      }
+    },
+    "vscode": {
+      "extensions": ["ms-python.python"]
+    }
+  }
+}
