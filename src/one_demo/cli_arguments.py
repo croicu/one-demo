@@ -42,7 +42,7 @@ def _add_model_arguments(parser: argparse.ArgumentParser, settings_section: str,
     parser.add_argument(
         "--provider",
         default=None,
-        help=f"provider section in settings.json (e.g. ollama, openai); overrides settings.{settings_section}.provider",
+        help=f"provider section in settings.json (e.g. local, openai); overrides settings.{settings_section}.provider",
     )
     parser.add_argument(
         "--model",

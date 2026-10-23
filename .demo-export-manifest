@@ -39,6 +39,7 @@ src/one_demo/judge_types.py
 src/one_demo/learn_command.py
 src/one_demo/lesson.py
 src/one_demo/lesson_tests.py
+src/one_demo/local_model_client.py
 src/one_demo/model_client.py
 src/one_demo/model_types.py
 src/one_demo/protocols.py

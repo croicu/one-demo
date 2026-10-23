@@ -20,7 +20,7 @@ from .edition import PROGRAM
 from .errors import AppError
 from .github_issues import GhIssueTracker
 from .judge_command import DEFAULT_PROMPT_PATH
-from .model_client import OpenAICompatibleClient
+from .local_model_client import client_for
 from .settings import Settings
 
 DEFAULT_LEARN_PROMPT_PATH = Path("prompts/learn_prompt.md")
@@ -30,9 +30,7 @@ __all__ = ["CliArguments", "main", "parse_args"]
 
 
 def _default_client_factory(provider: str, settings_path: Path | None) -> ModelClient:
-    if settings_path is None:
-        return OpenAICompatibleClient.from_settings(provider)
-    return OpenAICompatibleClient.from_settings(provider, path=settings_path)
+    return client_for(provider, settings_path)
 
 
 def _ask(question: str) -> bool:

@@ -1,4 +1,4 @@
-"""OpenAI-compatible chat client (OpenAI, Ollama, or any provider exposing the same API)."""
+"""OpenAI-compatible chat client (OpenAI, a llama-server, or any provider exposing the same API)."""
 
 from __future__ import annotations
 
