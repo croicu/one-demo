@@ -116,7 +116,9 @@ def run_scan(arguments: CliArguments, context: RunContext) -> int:
     if arguments.review:
         repo = SourceRepo.describe(root)
         ReviewRecord(
-            folder=str(root.resolve()),
+            # absolute(), not resolve(): resolve() follows junctions, so C:\Projects\... would be
+            # recorded as the drive it links to.
+            folder=str(root.absolute()),
             repo=repo.slug if repo else None,
             commit=repo.commit if repo else None,
         ).save(lessons_dir)
