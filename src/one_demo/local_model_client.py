@@ -13,10 +13,27 @@ from pathlib import Path
 from .diagnostics import Logger
 from .errors import TaskError
 from .model_client import CATEGORY_MODEL, CONTEXT_WARNING_FRACTION, OpenAICompatibleClient
-from .model_types import ChatMessage, ChatReply
+from .model_types import ChatMessage, ChatReply, ToolCall, ToolSpec
 from .settings import Settings
 
 KIND_LLAMACPP = "llamacpp"
+
+# Qwen's tool-call markup and end-of-turn tokens (the chat templates of the local models).
+TOOL_CALL_OPEN = "<tool_call>"
+TOOL_CALL_CLOSE = "</tool_call>"
+FENCE = "```"
+STOP_SEQUENCES = ("<|im_end|>", "<|endoftext|>")
+
+
+def _to_json(value: object, indent: int | None = None) -> str:
+    """The `tojson` filter as Hugging Face templates expect it: plain JSON, non-ASCII kept."""
+    return json.dumps(value, ensure_ascii=False, indent=indent)
+
+
+def _raise_template_error(message: str) -> None:
+    from jinja2 import TemplateError
+
+    raise TemplateError(message)
 
 
 def load_llama(model_path: str, context_tokens: int) -> object:
@@ -94,6 +111,186 @@ class LocalModelClient:
         if used >= self._context_tokens * CONTEXT_WARNING_FRACTION:
             Logger.warning(f"chat: {model} used {used} of its {self._context_tokens}-token context.", CATEGORY_MODEL)
         return parsed
+
+    def chat_with_tools(
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        tools: list[ToolSpec],
+        temperature: float | None = None,
+    ) -> ChatReply:
+        """One round of tool calling, done by the harness: the prompt is rendered with the model's own
+        chat template (Qwen's has a tools block), completed as plain text, and the model's
+        `<tool_call>{json}</tool_call>` blocks are parsed here. The request records the rendered prompt:
+        exactly what the model saw."""
+        message_payload = []
+        for message in messages:
+            message_payload.append(OpenAICompatibleClient.tool_message_payload(message, arguments_as_text=False))
+        tool_payload = []
+        for tool in tools:
+            tool_payload.append(OpenAICompatibleClient.tool_spec_payload(tool))
+
+        with self._lock:
+            llama = self._model(model)
+            template = llama.metadata.get("tokenizer.chat_template")
+            if not template:
+                raise TaskError(f"{model}'s GGUF file has no chat template, so its prompt can't be rendered for tools.")
+            prompt = self._render(template, message_payload, tool_payload)
+            arguments: dict = {"prompt": prompt, "max_tokens": None, "stop": list(STOP_SEQUENCES)}
+            if temperature is not None:
+                arguments["temperature"] = temperature
+            description = f"chat {model} (in process, {len(tools)} tool(s))"
+            Logger.diagnostic(description, CATEGORY_MODEL)
+            started = time.perf_counter()
+            try:
+                completion = llama.create_completion(**arguments)
+            except ValueError as error:
+                raise TaskError(f"{model} could not answer in process: {error}") from error
+            Logger.perf(description, time.perf_counter() - started)
+
+        text = self._completion_text(completion, model)
+        content, calls, errors = self._parse_tool_calls(text)
+        misses: list[str] = []
+        if not calls and not errors:
+            tool_names = []
+            for tool in tools:
+                tool_names.append(tool.name)
+            content, calls, misses = self._parse_untagged_tool_calls(content, tool_names, errors)
+        usage = completion.get("usage") if isinstance(completion.get("usage"), dict) else {}
+        reply = ChatReply(
+            content=content,
+            model=model,
+            prompt_tokens=int(usage.get("prompt_tokens", 0)),
+            completion_tokens=int(usage.get("completion_tokens", 0)),
+            context_tokens=self._context_tokens,
+            tool_calls=calls,
+            tool_call_errors=errors,
+            tool_call_format_misses=misses,
+            request={"model": model, "messages": message_payload, "tools": tool_payload, "prompt": prompt},
+            response=completion,
+        )
+        used = reply.prompt_tokens + reply.completion_tokens
+        if used >= self._context_tokens * CONTEXT_WARNING_FRACTION:
+            Logger.warning(f"chat: {model} used {used} of its {self._context_tokens}-token context.", CATEGORY_MODEL)
+        return reply
+
+    @staticmethod
+    def _render(template: str, messages: list[dict], tools: list[dict]) -> str:
+        """Renders a Hugging Face-style chat template the way transformers does (sandboxed jinja2,
+        trimmed blocks). jinja2 comes with llama-cpp-python, so it is imported only here."""
+        from jinja2 import TemplateError
+        from jinja2.sandbox import ImmutableSandboxedEnvironment
+
+        environment = ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True)
+        environment.filters["tojson"] = _to_json
+        environment.globals["raise_exception"] = _raise_template_error
+        try:
+            return environment.from_string(template).render(messages=messages, tools=tools or None, add_generation_prompt=True)
+        except TemplateError as error:
+            raise TaskError(f"The model's chat template could not be rendered: {error}") from error
+
+    @staticmethod
+    def _completion_text(completion: dict, model: str) -> str:
+        choices = completion.get("choices")
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+            raise TaskError(f"Completion from {model} has no choices: {str(completion)[:300]}")
+        text = choices[0].get("text")
+        if not isinstance(text, str):
+            raise TaskError(f"Completion from {model} has no text: {str(completion)[:300]}")
+        return text
+
+    @staticmethod
+    def _parse_tool_calls(text: str) -> tuple[str, list[ToolCall], list[str]]:
+        """Splits a completion into its text and its `<tool_call>` blocks. A block that isn't a JSON
+        object with a name, or that never closes, is a tool-call error, not a silent drop."""
+        calls: list[ToolCall] = []
+        errors: list[str] = []
+        content_parts = []
+        position = 0
+        while True:
+            start = text.find(TOOL_CALL_OPEN, position)
+            if start == -1:
+                content_parts.append(text[position:])
+                break
+            content_parts.append(text[position:start])
+            end = text.find(TOOL_CALL_CLOSE, start)
+            if end == -1:
+                errors.append(f"a tool call that never closes: {text[start : start + 200]!r}")
+                break
+            body = text[start + len(TOOL_CALL_OPEN) : end].strip()
+            position = end + len(TOOL_CALL_CLOSE)
+            call = LocalModelClient._tool_call_from_json(body, len(calls) + 1, errors)
+            if call is not None:
+                calls.append(call)
+        return "".join(content_parts).strip(), calls, errors
+
+    @staticmethod
+    def _parse_untagged_tool_calls(text: str, tool_names: list[str], errors: list[str]) -> tuple[str, list[ToolCall], list[str]]:
+        """The near miss: no `<tool_call>` tags, but a ```json fence (or the whole reply) holding a JSON
+        object whose `name` is an offered tool. Taken as the call, and returned as a format miss so the
+        transcript still shows the model didn't follow its template. JSON that names no offered tool
+        stays text: it may be the answer."""
+        calls: list[ToolCall] = []
+        misses: list[str] = []
+        content_parts = []
+        position = 0
+        while True:
+            start = text.find(FENCE, position)
+            if start == -1:
+                content_parts.append(text[position:])
+                break
+            line_end = text.find("\n", start)
+            end = text.find(FENCE, line_end + 1) if line_end != -1 else -1
+            if end == -1:
+                content_parts.append(text[position:])
+                break
+            body = text[line_end + 1 : end].strip()
+            call = LocalModelClient._offered_tool_call(body, tool_names, len(calls) + 1, errors)
+            if call is None:
+                content_parts.append(text[position : end + len(FENCE)])
+            else:
+                content_parts.append(text[position:start])
+                calls.append(call)
+                misses.append(f"{call.name}: called in a ``` fence instead of <tool_call> tags")
+            position = end + len(FENCE)
+
+        if not calls:
+            call = LocalModelClient._offered_tool_call(text.strip(), tool_names, 1, errors)
+            if call is not None:
+                return "", [call], [f"{call.name}: called as bare JSON instead of <tool_call> tags"]
+        return "".join(content_parts).strip(), calls, misses
+
+    @staticmethod
+    def _offered_tool_call(body: str, tool_names: list[str], number: int, errors: list[str]) -> ToolCall | None:
+        try:
+            decoded = json.loads(body)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(decoded, dict) or decoded.get("name") not in tool_names:
+            return None
+        return LocalModelClient._tool_call_from_json(body, number, errors)
+
+    @staticmethod
+    def _tool_call_from_json(body: str, number: int, errors: list[str]) -> ToolCall | None:
+        try:
+            decoded = json.loads(body)
+        except json.JSONDecodeError:
+            errors.append(f"a tool call that is not JSON: {body[:200]!r}")
+            return None
+        if not isinstance(decoded, dict) or not isinstance(decoded.get("name"), str) or not decoded["name"]:
+            errors.append(f"a tool call without a name: {body[:200]!r}")
+            return None
+        arguments = decoded.get("arguments", {})
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments or "{}")
+            except json.JSONDecodeError:
+                errors.append(f"{decoded['name']}: arguments are not JSON: {arguments[:200]!r}")
+                return None
+        if not isinstance(arguments, dict):
+            errors.append(f"{decoded['name']}: arguments are not a JSON object: {str(arguments)[:200]!r}")
+            return None
+        return ToolCall(id=f"call_{number}", name=decoded["name"], arguments=arguments)
 
     @staticmethod
     def _complete(llama: object, model: str, arguments: dict, how: str) -> ChatReply:

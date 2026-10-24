@@ -10,10 +10,11 @@ from .cli_arguments import (
     COMMAND_JUDGE,
     COMMAND_LEARN,
     COMMAND_SCAN,
+    COMMAND_TOOL_CHAT,
     CliArguments,
     parse_args,
 )
-from .command_runs import RunContext, run_approve, run_chat, run_judge, run_learn, run_scan
+from .command_runs import RunContext, run_approve, run_chat, run_judge, run_learn, run_scan, run_tool_chat
 from .contracts import IssueTracker, ModelClient
 from .diagnostics import ConsoleLogSink, Logger
 from .edition import PROGRAM
@@ -45,6 +46,8 @@ def _ask(question: str) -> bool:
 def _dispatch(arguments: CliArguments, context: RunContext) -> int:
     if arguments.command == COMMAND_CHAT:
         return run_chat(arguments, context)
+    if arguments.command == COMMAND_TOOL_CHAT:
+        return run_tool_chat(arguments, context)
     if arguments.command == COMMAND_JUDGE:
         return run_judge(arguments, context)
     if arguments.command == COMMAND_SCAN:

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from .edition import COMMANDS, PROGRAM
 
 COMMAND_CHAT = "chat"
+COMMAND_TOOL_CHAT = "tool-chat"
 COMMAND_JUDGE = "judge"
 COMMAND_SCAN = "scan"
 COMMAND_LEARN = "learn"
@@ -36,6 +37,7 @@ class CliArguments:
     revise: str | None = None
     issues: bool = False
     yes: bool = False
+    transcript: str | None = None
 
 
 def _add_model_arguments(parser: argparse.ArgumentParser, settings_section: str, temperature: bool = True) -> None:
@@ -70,6 +72,17 @@ def _add_chat(subparsers) -> None:
     chat_parser = subparsers.add_parser(COMMAND_CHAT, help="send one prompt to a model and print its reply")
     chat_parser.add_argument("prompt", help="the prompt to send")
     _add_model_arguments(chat_parser, COMMAND_CHAT, temperature=False)
+
+
+def _add_tool_chat(subparsers) -> None:
+    tool_chat_parser = subparsers.add_parser(COMMAND_TOOL_CHAT, help="the model fetches the message through a tool (get_message), then answers it")
+    tool_chat_parser.add_argument("prompt", metavar="message", help="the message the get_message tool returns")
+    tool_chat_parser.add_argument(
+        "--transcript",
+        default=None,
+        help="write every round (request, response, tool results) to this JSONL file",
+    )
+    _add_model_arguments(tool_chat_parser, COMMAND_CHAT, temperature=False)
 
 
 def _add_judge(subparsers) -> None:
@@ -128,6 +141,7 @@ def _add_approve(subparsers) -> None:
 
 _BUILDERS = {
     COMMAND_CHAT: _add_chat,
+    COMMAND_TOOL_CHAT: _add_tool_chat,
     COMMAND_JUDGE: _add_judge,
     COMMAND_SCAN: _add_scan,
     COMMAND_LEARN: _add_learn,
@@ -165,4 +179,5 @@ def parse_args(argv: list[str]) -> CliArguments:
         revise=getattr(args, "revise", None),
         issues=getattr(args, "issues", False),
         yes=getattr(args, "yes", False),
+        transcript=getattr(args, "transcript", None),
     )

@@ -26,6 +26,8 @@ from .scan_command import ScanCommand
 from .scan_report import ScanReport
 from .settings import Settings
 from .source_repo import SourceRepo
+from .tool_chat_command import ToolChatCommand
+from .tool_loop import Transcript
 
 
 @dataclass
@@ -77,6 +79,16 @@ def run_chat(arguments: CliArguments, context: RunContext) -> int:
     choice = _choose(COMMAND_CHAT, arguments, context)
     client = context.client_factory(choice.provider, context.settings_path)
     reply = ChatCommand(client, choice.model).run(arguments.prompt or "")
+    Logger.print(reply.content)
+    return 0
+
+
+def run_tool_chat(arguments: CliArguments, context: RunContext) -> int:
+    """Provider and model resolve as for chat (settings.chat)."""
+    choice = _choose(COMMAND_CHAT, arguments, context)
+    client = context.client_factory(choice.provider, context.settings_path)
+    transcript = Transcript(Path(arguments.transcript)) if arguments.transcript else None
+    reply = ToolChatCommand(client, choice.model, transcript).run(arguments.prompt or "")
     Logger.print(reply.content)
     return 0
 

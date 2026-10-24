@@ -50,6 +50,8 @@ src/one_demo/scan_report.py
 src/one_demo/scan_types.py
 src/one_demo/settings.py
 src/one_demo/source_repo.py
+src/one_demo/tool_chat_command.py
+src/one_demo/tool_loop.py
 tests/unit/test_candidates.py
 tests/unit/test_context_guard.py
 tests/unit/test_issue_filing.py
